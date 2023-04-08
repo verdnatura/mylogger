@@ -1,0 +1,30 @@
+code: mylogger
+debug: false
+testMode: false
+pingInterval: 60
+flushInterval: 10
+db: 
+  host: localhost
+  port: 3306
+  user: zongji
+  password: password
+  database: util
+showFields:
+  - name
+  - description
+castTypes:
+  tinyint: boolean
+logs:
+  item:
+    logTable: vn.itemLog
+    mainTable: item
+    tables:
+      - name: item
+        exclude:
+          - image
+          - supplyResponseFk
+        types:
+          id: number
+          isPrinted: boolean
+      - name: itemTag
+        relation: itemFk

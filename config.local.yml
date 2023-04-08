@@ -1,0 +1,36 @@
+debug: true
+testMode: false
+db: 
+  host: localhost
+  port: 3306
+  user: root
+  password: root
+  database: vn
+showField:
+  - name
+    description
+logs:
+  ticket:
+    logTable: clientLog
+    mainTable: ticket
+    tables:
+      - sale
+      - ticketTracking
+  client:
+    logTable: clientLog
+    mainTable: client
+    tables:
+      - client
+      - address
+  item:
+    logTable: itemLog
+    mainTable: item
+    tables:
+      - name: item
+        exclude:
+          - image
+          - supplyResponseFk
+      - itemTag
+  route:
+    logTable: routeLog
+    mainTable: route
