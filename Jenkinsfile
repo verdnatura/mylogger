@@ -16,12 +16,6 @@ pipeline {
                     def packageJson = readJSON file: 'package.json'
                     env.VERSION = packageJson.version
                 }
-                configFileProvider([
-                    configFile(fileId: "mylogger.groovy",
-                    variable: 'GROOVY_FILE')
-                ]) {
-                    load env.GROOVY_FILE
-                }
                 setEnv()
             }
         }
@@ -34,15 +28,6 @@ pipeline {
                 sh 'docker login --username $CREDS_USR --password $CREDS_PSW $REGISTRY'
                 sh 'docker-compose build --build-arg BUILD_ID=$BUILD_ID --parallel'
                 sh 'docker-compose push'
-            }
-        }
-        stage('Deploy') {
-            when {branch 'master'}
-            environment {
-                DOCKER_HOST = "${env.SWARM_HOST}"
-            }
-            steps {
-                sh "docker stack deploy --with-registry-auth --compose-file docker-compose.yml ${env.STACK_NAME}"
             }
         }
     }

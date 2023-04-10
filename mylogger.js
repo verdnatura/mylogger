@@ -20,6 +20,7 @@ const actions = {
 module.exports = class MyLogger {
   constructor() {
     this.running = false;
+    this.isOk = null;
     this.binlogName = null;
     this.binlogPosition = null;
     this.schemaMap = new Map();
@@ -73,16 +74,8 @@ module.exports = class MyLogger {
 
       Object.assign(tableInfo, {
         conf: tableConf,
-        exclude: new Set(tableConf.exclude),
-        castTypes: new Map(),
-        columns: new Map(),
-        showField: tableConf.showField,
-        relation: tableConf.relation
+        exclude: new Set(tableConf.exclude)
       });
-
-      if (tableConf.types)
-      for (const col in tableConf.types)
-        tableInfo.castTypes.set(col, tableConf.types[col]);
 
       return tableInfo;
     }
@@ -183,8 +176,18 @@ module.exports = class MyLogger {
 
     for (const [schema, tableMap] of this.schemaMap)
     for (const [table, tableInfo] of tableMap) {
+      const tableConf = tableInfo.conf;
 
       // Fetch columns & types
+
+      Object.assign (tableInfo, {
+        castTypes: new Map(),
+        columns: new Map()
+      });
+
+      if (tableConf.types)
+      for (const col in tableConf.types)
+        tableInfo.castTypes.set(col, tableConf.types[col]);
 
       const [dbCols] = await db.query(
         `SELECT COLUMN_NAME \`col\`, DATA_TYPE \`type\`, COLUMN_DEFAULT \`def\`
@@ -223,7 +226,7 @@ module.exports = class MyLogger {
 
       // Get show field
 
-      if (!tableInfo.showField) {
+      if (!tableConf.showField) {
         for (const showField of conf.showFields) {
           if (tableInfo.columns.has(showField)) {
             tableInfo.showField = showField;
@@ -238,7 +241,7 @@ module.exports = class MyLogger {
 
       // Fetch relation
 
-      if (!tableInfo.relation && !tableInfo.isMain) {
+      if (!tableInfo.conf.relation && !tableInfo.isMain) {
         const mainTable = tableInfo.log.mainTable;
         const mainTableInfo = this.schemaMap
           .get(mainTable.schema)
@@ -323,26 +326,37 @@ module.exports = class MyLogger {
     // Summary
 
     this.running = true;
+    this.isOk = true;
     this.debug('MyLogger', 'Initialized.');
   }
 
   async end(silent) {
-    const zongji = this.zongji;
-    if (!zongji) return;
-
+    if (!this.running) return;
+    this.running = false;
     this.debug('MyLogger', 'Ending.');
-
-    // Zongji
+  
+    this.db.off('error', this.onErrorListener);
 
     clearInterval(this.flushInterval);
     clearInterval(this.pingInterval);
     clearInterval(this.flushTimeout);
-    await this.flushQueue();
 
+    function logError(err) {
+      if (!silent) console.error(err);
+    }
+
+    try {
+      await this.flushQueue();
+    } catch (err) {
+      logError(err);
+    }
+
+    // Zongji
+
+    const zongji = this.zongji;
     zongji.off('binlog', this.onBinlogListener);
     zongji.off('error', this.onErrorListener);
     this.zongji = null;
-    this.running = false;
 
     this.debug('Zongji', 'Stopping.');
     // FIXME: Cannot call Zongji.stop(), it doesn't wait to end connection
@@ -352,8 +366,8 @@ module.exports = class MyLogger {
     await new Promise(resolve => {
       zongji.ctrlConnection.query('KILL ?', [zongji.connection.threadId],
       err => {
-        if (err && err.code !== 'ER_NO_SUCH_THREAD' && !silent)
-          console.error(err);
+        if (err && err.code !== 'ER_NO_SUCH_THREAD')
+          logError(err);
         resolve();
       });
     });
@@ -365,14 +379,12 @@ module.exports = class MyLogger {
 
     // DB connection
 
-    this.db.off('error', this.onErrorListener);
     // FIXME: mysql2/promise bug, db.end() ends process
     this.db.on('error', () => {});
     try {
-      await this.db.end();
+      this.db.end();
     } catch (err) {
-      if (!silent)
-        console.error(err);
+      logError(err);
     }
 
     // Summary
@@ -385,12 +397,15 @@ module.exports = class MyLogger {
       await this.init();
       console.log('Process restarted.');
     } catch(err) {
-      setTimeout(() => this.tryRestart(), 30);
+      setTimeout(() => this.tryRestart(), this.conf.restartTimeout * 1000);
     }
   }
 
   async onError(err) {
+    if (!this.isOk) return;
+    this.isOk = false;
     console.log(`Error: ${err.code}: ${err.message}`);
+
     try {
       await this.end(true);
     } catch(e) {}
@@ -513,7 +528,7 @@ module.exports = class MyLogger {
   }
 
   async flushQueue() {
-    if (this.isFlushed || this.isFlushing) return;
+    if (this.isFlushed || this.isFlushing || !this.isOk) return;
     this.isFlushing = true;
     const {conf, db} = this;
 
@@ -564,7 +579,7 @@ module.exports = class MyLogger {
   }
 
   handleError(err) {
-    console.error('Super error:', err);
+    console.error(err);
   }
 
   async applyOp(op) {
@@ -638,16 +653,21 @@ module.exports = class MyLogger {
   }
 
   async connectionPing() {
-    this.debug('Ping', 'Sending ping to database.');
+    if (!this.isOk) return;
+    try {
+      this.debug('Ping', 'Sending ping to database.');
 
-    // FIXME: Should Zongji.connection be pinged?
-    await new Promise((resolve, reject) => {
-      this.zongji.ctrlConnection.ping(err => {
-        if (err) return reject(err);
-        resolve();
-      });
-    })
-    await this.db.ping();
+      // FIXME: Should Zongji.connection be pinged?
+      await new Promise((resolve, reject) => {
+        this.zongji.ctrlConnection.ping(err => {
+          if (err) return reject(err);
+          resolve();
+        });
+      })
+      await this.db.ping();
+    } catch(err) {
+      this.handleError(err);
+    }
   }
 
   debug(namespace, message) {

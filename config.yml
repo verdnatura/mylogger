@@ -3,6 +3,7 @@ debug: false
 testMode: false
 pingInterval: 60
 flushInterval: 10
+restartTimeout: 30
 queueFlushDelay: 100
 maxBulkLog: 100
 srcDb:

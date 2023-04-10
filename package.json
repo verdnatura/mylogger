@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "amqplib": "^0.10.3",
     "colors": "^1.4.0",
     "mysql2": "^2.3.3",
     "require-yaml": "^0.0.1",
