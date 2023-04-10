@@ -9,13 +9,13 @@ RUN apt-get update \
         curl \
         ca-certificates \
         gnupg2 \
-    && url -fsSL https://deb.nodesource.com/setup_14.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_14.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Consumer
+# MyLogger
 
-WORKDIR /mycdc
+WORKDIR /mylogger
 COPY package.json package-lock.json ./
 RUN npm install --only=prod
 
@@ -32,4 +32,4 @@ COPY \
     config.yml \
     ./
 
-CMD ["node", "mylogger.js"]
+CMD ["node", "index.js"]
