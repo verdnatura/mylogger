@@ -6,7 +6,7 @@ pipeline {
         disableConcurrentBuilds()
     }
     environment {
-        PROJECT_NAME = 'mycdc'
+        PROJECT_NAME = 'mylogger'
         STACK_NAME   = "${env.PROJECT_NAME}-${env.BRANCH_NAME}"
     }
     stages {
@@ -17,7 +17,7 @@ pipeline {
                     env.VERSION = packageJson.version
                 }
                 configFileProvider([
-                    configFile(fileId: "mycdc.groovy",
+                    configFile(fileId: "mylogger.groovy",
                     variable: 'GROOVY_FILE')
                 ]) {
                     load env.GROOVY_FILE

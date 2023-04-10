@@ -1,14 +1,17 @@
 debug: true
 testMode: false
-db: 
+srcDb:
   host: localhost
   port: 3306
   user: root
   password: root
   database: vn
-showField:
-  - name
-    description
+dstDb:
+  host: localhost
+  port: 3306
+  user: root
+  password: root
+  database: vn
 logs:
   ticket:
     logTable: clientLog

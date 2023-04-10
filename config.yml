@@ -3,10 +3,18 @@ debug: false
 testMode: false
 pingInterval: 60
 flushInterval: 10
-db: 
+queueFlushDelay: 100
+maxBulkLog: 100
+srcDb:
   host: localhost
   port: 3306
   user: zongji
+  password: password
+  database: util
+dstDb:
+  host: localhost
+  port: 3306
+  user: root
   password: password
   database: util
 showFields:
@@ -24,7 +32,6 @@ logs:
           - image
           - supplyResponseFk
         types:
-          id: number
           isPrinted: boolean
       - name: itemTag
         relation: itemFk
