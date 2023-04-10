@@ -25,7 +25,7 @@ pipeline {
                 CREDENTIALS = credentials('docker-registry')
             }
             steps {
-                sh 'docker login --username $CREDS_USR --password $CREDS_PSW $REGISTRY'
+                sh 'docker login --username $CREDENTIALS_USR --password $CREDENTIALS_PSW $REGISTRY'
                 sh 'docker-compose build --build-arg BUILD_ID=$BUILD_ID --parallel'
                 sh 'docker-compose push'
             }
