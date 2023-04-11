@@ -1,7 +1,7 @@
 code: mylogger
 debug: false
 testMode: false
-pingInterval: 3600
+pingInterval: 300
 flushInterval: 30
 restartTimeout: 30
 queueFlushDelay: 200

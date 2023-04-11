@@ -613,12 +613,21 @@ module.exports = class MyLogger {
           break;
       }
 
+      let created = new Date(evt.timestamp);
+      created = Date.UTC(
+        created.getFullYear(),
+        created.getMonth(),
+        created.getDate(),
+        created.getHours(),
+        created.getMinutes(),
+        created.getSeconds()
+      );
+
       const modelName = tableInfo.modelName;
       const modelId = row[tableInfo.idName];
       const modelValue = tableInfo.showField
         ? row[tableInfo.showField] || null
         : null;
-      const created = new Date(evt.timestamp);
       const oldInstance = oldI ? JSON.stringify(oldI) : null;
       const originFk = !tableInfo.isMain
         ? row[tableInfo.relation]
