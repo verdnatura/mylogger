@@ -9,6 +9,7 @@ RUN apt-get update \
         curl \
         ca-certificates \
         gnupg2 \
+        git \
     && curl -fsSL https://deb.nodesource.com/setup_14.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
