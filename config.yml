@@ -1,11 +1,12 @@
 code: mylogger
 debug: false
 testMode: false
-pingInterval: 60
-flushInterval: 10
+pingInterval: 3600
+flushInterval: 30
 restartTimeout: 30
-queueFlushDelay: 100
+queueFlushDelay: 200
 maxBulkLog: 100
+upperCaseTable: true
 srcDb:
   host: localhost
   port: 3306
