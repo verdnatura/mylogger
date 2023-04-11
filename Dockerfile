@@ -18,10 +18,11 @@ RUN apt-get update \
 # MyLogger
 
 WORKDIR /mylogger
-COPY package.json package-lock.json ./
 RUN npm install --omit=dev \
     && git clone --depth 1 --branch fix-143 https://github.com/juan-ferrer-toribio/zongji.git \
     && (cd zongji && npm install --omit=dev)
+
+COPY package.json package-lock.json ./
 
 ARG BUILD_ID=unknown
 ARG VERSION
@@ -36,4 +37,5 @@ COPY \
     config.yml \
     ./
 
+ENV TZ Europe/Madrid
 CMD ["node", "index.js"]

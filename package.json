@@ -1,6 +1,6 @@
 {
   "name": "mylogger",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": "Verdnatura Levante SL",
   "description": "MySQL and MariaDB logger using binary log",
   "license": "GPL-3.0",
