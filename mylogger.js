@@ -614,14 +614,14 @@ module.exports = class MyLogger {
       }
 
       let created = new Date(evt.timestamp);
-      created = Date.UTC(
+      created = new Date(Date.UTC(
         created.getFullYear(),
         created.getMonth(),
         created.getDate(),
         created.getHours(),
         created.getMinutes(),
         created.getSeconds()
-      );
+      ));
 
       const modelName = tableInfo.modelName;
       const modelId = row[tableInfo.idName];
