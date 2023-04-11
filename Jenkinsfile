@@ -23,7 +23,7 @@ pipeline {
             when {branch 'master'}
             environment {
                 IMAGE = 'registry.verdnatura.es/mylogger'
-                TAG = env.VERSION
+                TAG = "${env.VERSION}"
                 CREDENTIALS = credentials('docker-registry')
             }
             steps {
