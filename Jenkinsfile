@@ -22,12 +22,17 @@ pipeline {
         stage('Build') {
             when {branch 'master'}
             environment {
+                IMAGE = 'registry.verdnatura.es/mylogger'
+                TAG = "${env.VERSION}-build${env.BUILD_ID}"
                 CREDENTIALS = credentials('docker-registry')
             }
             steps {
                 sh 'docker login --username $CREDENTIALS_USR --password $CREDENTIALS_PSW $REGISTRY'
                 sh 'docker-compose build --build-arg BUILD_ID=$BUILD_ID --parallel'
                 sh 'docker-compose push'
+                
+                sh 'docker tag $IMAGE:$TAG $IMAGE:latest'
+                sh 'docker push $IMAGE:latest'
             }
         }
     }
