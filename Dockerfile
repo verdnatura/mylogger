@@ -11,8 +11,9 @@ RUN apt-get update \
         gnupg2 \
         git \
     && curl -fsSL https://deb.nodesource.com/setup_14.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs npm \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm i -g npm@9.5.0
 
 # MyLogger
 
