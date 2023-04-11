@@ -2,7 +2,6 @@
   "dependencies": {
     "colors": "^1.4.0",
     "mysql2": "^2.3.3",
-    "require-yaml": "^0.0.1",
-    "zongji": "file:../zongji"
+    "require-yaml": "^0.0.1"
   }
 }
