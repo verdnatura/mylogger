@@ -19,9 +19,9 @@ RUN apt-get update \
 
 WORKDIR /mylogger
 COPY package.json package-lock.json ./
-RUN npm install --only=prod \
+RUN npm install --omit=dev \
     && git clone --depth 1 --branch fix-143 https://github.com/juan-ferrer-toribio/zongji.git \
-    && (cd zongji && npm install --only=prod)
+    && (cd zongji && npm install --omit=dev)
 
 ARG BUILD_ID=unknown
 ARG VERSION
