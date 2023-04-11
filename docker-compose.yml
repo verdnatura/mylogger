@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   main:
-    image: registry.verdnatura.es/mylogger
+    image: registry.verdnatura.es/mylogger:${VERSION}-${BUILD_ID}
     build:
       context: .
       dockerfile: Dockerfile
