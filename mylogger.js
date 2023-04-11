@@ -716,8 +716,16 @@ function equals(a, b) {
   if (a == null || b == null || type !== typeof b)
     return false;
   if (type === 'object' && a.constructor === b.constructor) {
-    if (a instanceof Date)
-      return a.getTime() === b.getTime();
+    if (a instanceof Date) {
+      // FIXME: zongji creates invalid dates for NULL DATE
+      // Error is somewhere here: zongji/lib/rows_event.js:129
+      let aTime = a.getTime();
+      if (isNaN(aTime)) aTime = null;
+      let bTime = b.getTime();
+      if (isNaN(bTime)) bTime = null;
+
+      return aTime === bTime;
+    }
   }
   return false;
 }
