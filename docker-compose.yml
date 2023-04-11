@@ -7,17 +7,3 @@ services:
       dockerfile: Dockerfile
       args:
         - VERSION=${VERSION:?}
-    configs:
-      - source: config
-        target: /mylogger/config.local.yml
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-      placement:
-        constraints:
-          - node.role == worker
-configs:
-  config:
-    external: true
-    name: mylogger_config
