@@ -64,10 +64,19 @@ module.exports = class MyLogger {
         ? toUpperCamelCase(table.name)
         : table.name;
 
+      const {
+        showField,
+        relation,
+        idName
+      } = tableConf;
+
       Object.assign(tableInfo, {
         conf: tableConf,
         exclude: new Set(tableConf.exclude),
-        modelName
+        modelName,
+        showField,
+        relation,
+        idName,
       });
 
       return tableInfo;
@@ -200,22 +209,24 @@ module.exports = class MyLogger {
 
       // Fetch primary key
 
-      const [dbPks] = await db.query(
-        `SELECT COLUMN_NAME idName
-          FROM information_schema.KEY_COLUMN_USAGE
-          WHERE CONSTRAINT_NAME = 'PRIMARY'
-            AND TABLE_NAME = ?
-            AND TABLE_SCHEMA = ?`,
-        [table, schema]
-      );
+      if (!tableConf.idName) {
+        const [dbPks] = await db.query(
+          `SELECT COLUMN_NAME idName
+            FROM information_schema.KEY_COLUMN_USAGE
+            WHERE CONSTRAINT_NAME = 'PRIMARY'
+              AND TABLE_NAME = ?
+              AND TABLE_SCHEMA = ?`,
+          [table, schema]
+        );
 
-      if (!dbPks.length)
-        throw new Error(`Primary not found for table: ${schema}.${table}`);
-      if (dbPks.length > 1)
-        throw new Error(`Only one column primary is supported: ${schema}.${table}`);
+        if (!dbPks.length)
+          throw new Error(`Primary not found for table: ${schema}.${table}`);
+        if (dbPks.length > 1)
+          throw new Error(`Only one column primary is supported: ${schema}.${table}`);
 
-      for (const {idName} of dbPks)
-        tableInfo.idName = idName;
+        for (const {idName} of dbPks)
+          tableInfo.idName = idName;
+      }
 
       // Get show field
 
