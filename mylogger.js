@@ -77,6 +77,7 @@ module.exports = class MyLogger {
         showField,
         relation,
         idName,
+        userField: tableConf.userField || conf.userField
       });
 
       return tableInfo;
@@ -199,7 +200,7 @@ module.exports = class MyLogger {
       );
 
       for (const {col, type, def} of dbCols) {
-        if (!tableInfo.exclude.has(col) && col != 'editorFk')
+        if (!tableInfo.exclude.has(col) && col != tableInfo.userField)
           tableInfo.columns.set(col, {type, def});
 
         const castType = conf.castTypes[type];
@@ -653,7 +654,7 @@ module.exports = class MyLogger {
       if (!isDelete || !deleteRow) {
         await logInfo.addStmt.execute([
           originFk,
-          row.editorFk || null,
+          row[tableInfo.userField] || null,
           action,
           created,
           modelName,

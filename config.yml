@@ -19,6 +19,8 @@ dstDb:
   user: root
   password: password
   database: util
+userField:
+  - editorFk
 showFields:
   - name
   - description
@@ -27,7 +29,7 @@ castTypes:
   tinyint: boolean
 logs:
   item:
-    logTable: vn.itemLog
+    logTable: itemLog
     mainTable: item
     tables:
       - name: item
