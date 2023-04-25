@@ -119,7 +119,8 @@ module.exports = class MyLogger {
         'updaterows',
         'deleterows'
       ],
-      includeSchema
+      includeSchema,
+      serverId: conf.serverId
     };
 
     if (conf.testMode)

@@ -7,6 +7,7 @@ restartTimeout: 30
 queueFlushDelay: 200
 maxBulkLog: 100
 upperCaseTable: true
+serverId: 1
 srcDb:
   host: localhost
   port: 3306
