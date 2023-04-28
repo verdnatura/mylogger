@@ -639,31 +639,38 @@ module.exports = class MyLogger {
 
       let deleteRow;
 
-      if (isDelete) {
-        [[deleteRow]] = await logInfo.fetchStmt.execute([
-          modelName, modelId
-        ]);
-        if (deleteRow)
-          await logInfo.updateStmt.execute([
-            originFk,
-            created,
-            oldInstance,
-            modelValue,
-            deleteRow.id
+      try {
+        if (isDelete) {
+          [[deleteRow]] = await logInfo.fetchStmt.execute([
+            modelName, modelId
           ]);
-      }
-      if (!isDelete || !deleteRow) {
-        await logInfo.addStmt.execute([
-          originFk,
-          row[tableInfo.userField] || null,
-          action,
-          created,
-          modelName,
-          oldInstance,
-          newI ? JSON.stringify(newI) : null,
-          modelId,
-          modelValue
-        ]);
+          if (deleteRow)
+            await logInfo.updateStmt.execute([
+              originFk,
+              created,
+              oldInstance,
+              modelValue,
+              deleteRow.id
+            ]);
+        }
+        if (!isDelete || !deleteRow) {
+          await logInfo.addStmt.execute([
+            originFk,
+            row[tableInfo.userField] || null,
+            action,
+            created,
+            modelName,
+            oldInstance,
+            newI ? JSON.stringify(newI) : null,
+            modelId,
+            modelValue
+          ]);
+        }
+      } catch (err) {
+        if (err.code == 'ER_NO_REFERENCED_ROW_2') {
+          this.debug('Log', `Ignored because of constraint failed.`);
+        } else
+          throw err;
       }
     }
   }
