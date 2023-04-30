@@ -541,9 +541,9 @@ module.exports = class MyLogger {
 
     if (!changes.length) return;
 
-    if (this.debug) {
-      console.debug('Log:'.blue, `[${action}]`.yellow, tableName);
-    }
+    if (this.debug)
+      console.debug('Evt:'.blue,
+        `[${action}]`[actionColor[action]], `${tableName}: ${changes.length} changes`);
 
     this.queue.push({
       tableInfo,
@@ -562,31 +562,36 @@ module.exports = class MyLogger {
   async flushQueue() {
     if (this.isFlushed || this.isFlushing || !this.isOk) return;
     this.isFlushing = true;
-    const {conf, db} = this;
+    const {conf, db, queue} = this;
     let op;
 
     try {
-      if (this.queue.length) {
+      if (queue.length) {
         do {
-          let appliedOps;
+          const ops = [];
+          let txStarted;
           try {
             await db.query('START TRANSACTION');
-            appliedOps = [];
+            txStarted = true;
 
-            for (let i = 0; i < conf.maxBulkLog && this.queue.length; i++) {
-              op = this.queue.shift();
-              appliedOps.push(op);
+            for (let i = 0; i < conf.maxBulkLog && queue.length; i++) {
+              op = queue.shift();
+              ops.push(op);
               await this.applyOp(op);
             }
 
+            this.debug('Queue', `applied: ${ops.length}, remaining: ${queue.length}`);
             await this.savePosition(op.binlogName, op.evt.nextPosition)
             await db.query('COMMIT');
           } catch(err) {
-            this.queue = appliedOps.concat(this.queue);
-            await db.query('ROLLBACK');
+            queue.unshift(...ops);
+            if (txStarted)
+              try {
+                await db.query('ROLLBACK');
+              } catch (err) {}
             throw err;
           }
-        } while (this.queue.length);
+        } while (queue.length);
       } else {
         await this.savePosition(this.binlogName, this.binlogPosition);
       }
@@ -638,6 +643,9 @@ module.exports = class MyLogger {
         : modelId;
 
       let deleteRow;
+      if (this.debug)
+        console.debug('Log:'.blue,
+          `[${action}]`[actionColor[action]], `${modelName}: ${modelId}`);
 
       try {
         if (isDelete) {
@@ -721,6 +729,12 @@ const actions = {
   writerows: 'insert',
   updaterows: 'update',
   deleterows: 'delete'
+};
+
+const actionColor = {
+  insert: 'green',
+  update: 'yellow',
+  delete: 'red'
 };
 
 function toUpperCamelCase(str) {

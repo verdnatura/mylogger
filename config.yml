@@ -5,7 +5,7 @@ pingInterval: 300
 flushInterval: 30
 restartTimeout: 30
 queueFlushDelay: 200
-maxBulkLog: 100
+maxBulkLog: 25
 upperCaseTable: true
 serverId: 1
 srcDb:
