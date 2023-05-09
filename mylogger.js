@@ -26,15 +26,14 @@ module.exports = class MyLogger {
       Object.assign(conf, localConfig);
     }
 
-    const defaultSchema = conf.srcDb.database;
-    function parseTable(tableString) {
+    function parseTable(tableString, defaultSchema) {
       let name, schema;
       const split = tableString.split('.');
       if (split.length == 1) {
         name = split[0];
         schema = defaultSchema;
       } else {
-        [name, schema] = split;
+        [schema, name] = split;
       }
       return {name, schema};
     }
@@ -42,8 +41,8 @@ module.exports = class MyLogger {
     const schemaMap = this.schemaMap;
     function addTable(tableConf, logInfo) {
       if (typeof tableConf == 'string')
-      tableConf = {name: tableConf};
-      const table = parseTable(tableConf.name);
+        tableConf = {name: tableConf};
+      const table = parseTable(tableConf.name, logInfo.schema);
 
       let tableMap = schemaMap.get(table.schema);
       if (!tableMap) {
@@ -85,14 +84,16 @@ module.exports = class MyLogger {
 
     for (const logName in conf.logs) {
       const logConf = conf.logs[logName];
+      const schema = logConf.schema || conf.srcDb.database;
       const logInfo = {
         conf: logConf,
-        table: parseTable(logConf.logTable),
-        mainTable: parseTable(logConf.mainTable)
+        schema,
+        table: parseTable(logConf.logTable, schema),
+        mainTable: parseTable(logConf.mainTable, schema)
       };
       this.logMap.set(logName, logInfo);
 
-      const mainTable = addTable(logInfo.mainTable, logInfo);
+      const mainTable = addTable(logConf.mainTable, logInfo);
       mainTable.isMain = true;
 
       if (logConf.tables)
