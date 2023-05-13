@@ -167,7 +167,9 @@ module.exports = class MyLogger {
         `SELECT id FROM ${sqlTable}
           WHERE changedModel = ?
             AND changedModelId = ?
-            AND action = 'delete'`
+            AND action = 'delete'
+            AND (originFk IS NULL OR originFk = ?)
+          LIMIT 1`
       );
       logInfo.updateStmt = await db.prepare(
         `UPDATE ${sqlTable}
@@ -542,7 +544,7 @@ module.exports = class MyLogger {
 
     if (!changes.length) return;
 
-    if (this.debug)
+    if (this.conf.debug)
       console.debug('Evt:'.blue,
         `[${action}]`[actionColor[action]], `${tableName}: ${changes.length} changes`);
 
@@ -644,14 +646,14 @@ module.exports = class MyLogger {
         : modelId;
 
       let deleteRow;
-      if (this.debug)
+      if (this.conf.debug)
         console.debug('Log:'.blue,
           `[${action}]`[actionColor[action]], `${modelName}: ${modelId}`);
 
       try {
         if (isDelete) {
           [[deleteRow]] = await logInfo.fetchStmt.execute([
-            modelName, modelId
+            modelName, modelId, originFk
           ]);
           if (deleteRow)
             await logInfo.updateStmt.execute([
