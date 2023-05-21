@@ -6,6 +6,7 @@ flushInterval: 30
 restartTimeout: 30
 queueFlushDelay: 200
 maxBulkLog: 25
+maxQueueEvents: 10000
 upperCaseTable: true
 serverId: 1
 srcDb:
