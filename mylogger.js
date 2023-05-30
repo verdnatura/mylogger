@@ -725,7 +725,7 @@ module.exports = class MyLogger {
 
     const logInfo = tableInfo.log;
     const isDelete = action == 'delete';
-    const isUpdate = action == 'udpate';
+    const isUpdate = action == 'update';
     const isMain = tableInfo.isMain;
     const relation = tableInfo.relation;
 
