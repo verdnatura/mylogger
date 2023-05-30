@@ -1,3 +1,4 @@
 node_modules
 zongji
-config.*.yml
+config/config.*.yml
+config/logs.*.yml

@@ -17,14 +17,21 @@ module.exports = class MyLogger {
     this.queue = [];
   }
 
-  async start() {
-    const defaultConfig = require('./config.yml');
-    const conf = this.conf = Object.assign({}, defaultConfig);
-    const localPath = path.join(__dirname, 'config.local.yml');
+  loadConfig(configName) {
+    const defaultConfig = require(`./config/${configName}.yml`);
+    const conf = Object.assign({}, defaultConfig);
+    const localPath = path.join(__dirname, 'config', `${configName}.local.yml`);
     if (fs.existsSync(localPath)) {
       const localConfig = require(localPath);
       Object.assign(conf, localConfig);
     }
+    return conf;
+  }
+
+  async start() {
+    this.conf = this.loadConfig('config');
+    this.logsConf = this.loadConfig('logs');
+    const {conf, logsConf} = this;
 
     function parseTable(tableString, defaultSchema) {
       let name, schema;
@@ -59,7 +66,7 @@ module.exports = class MyLogger {
         tableMap.set(table.name, tableInfo);
       }
 
-      const modelName = conf.upperCaseTable
+      const modelName = logsConf.upperCaseTable
         ? toUpperCamelCase(table.name)
         : table.name;
 
@@ -76,14 +83,14 @@ module.exports = class MyLogger {
         showField,
         relation,
         idName,
-        userField: tableConf.userField || conf.userField
+        userField: tableConf.userField || logsConf.userField
       });
 
       return tableInfo;
     }
 
-    for (const logName in conf.logs) {
-      const logConf = conf.logs[logName];
+    for (const logName in logsConf.logs) {
+      const logConf = logsConf.logs[logName];
       const schema = logConf.schema || conf.srcDb.database;
       const logInfo = {
         name: logName,
@@ -140,7 +147,7 @@ module.exports = class MyLogger {
   }
 
   async init() {
-    const {conf} = this;
+    const {conf, logsConf} = this;
     this.debug('MyLogger', 'Initializing.');
     this.onErrorListener = err => this.onError(err);
 
@@ -198,7 +205,10 @@ module.exports = class MyLogger {
         tableInfo.castTypes.set(col, tableConf.types[col]);
 
       const [dbCols] = await db.query(
-        `SELECT COLUMN_NAME \`col\`, DATA_TYPE \`type\`, COLUMN_DEFAULT \`def\`
+        `SELECT
+            COLUMN_NAME \`col\`,
+            DATA_TYPE \`type\`,
+            COLUMN_DEFAULT \`def\`
           FROM information_schema.\`COLUMNS\`
           WHERE TABLE_NAME = ? AND TABLE_SCHEMA = ?`,
         [table, schema]
@@ -208,7 +218,7 @@ module.exports = class MyLogger {
         if (!tableInfo.exclude.has(col) && col != tableInfo.userField)
           tableInfo.columns.set(col, {type, def});
 
-        const castType = conf.castTypes[type];
+        const castType = logsConf.castTypes[type];
         if (castType && !tableInfo.castTypes.has(col))
           tableInfo.castTypes.set(col, castType);
       }
@@ -237,7 +247,7 @@ module.exports = class MyLogger {
       // Get show field
 
       if (!tableConf.showField) {
-        for (const showField of conf.showFields) {
+        for (const showField of logsConf.showFields) {
           if (tableInfo.columns.has(showField)) {
             tableInfo.showField = showField;
             break;
@@ -245,6 +255,8 @@ module.exports = class MyLogger {
         }
       }
     }
+
+    const showValues = new Map();
 
     for (const [schema, tableMap] of this.schemaMap)
     for (const [table, tableInfo] of tableMap) {
@@ -296,16 +308,57 @@ module.exports = class MyLogger {
           WHERE TABLE_NAME = ?
             AND TABLE_SCHEMA = ?
             AND REFERENCED_TABLE_NAME IS NOT NULL`,
-        [
-          table,
-          schema
-        ]
+        [table, schema]
       );
 
       tableInfo.relations = new Map();
-      for (const {col, schema, table, column} of relations)
+      for (const {col, schema, table, column} of relations) {
         tableInfo.relations.set(col, {schema, table, column});
+
+        let tables = showValues.get(schema);
+        if (!tables) {
+          tables = new Map();
+          showValues.set(schema, tables);
+        }
+        if (!tables.get(table)) tables.set(table, null);
+      }
     }
+
+    const showTables = [];
+    const showFields = logsConf.showFields;
+
+    for (const [schema, tableMap] of showValues)
+    for (const [table] of tableMap)
+      showTables.push([table, schema]);
+
+    const [result] = await db.query(
+      `SELECT
+          TABLE_NAME \`table\`,
+          TABLE_SCHEMA \`schema\`,
+          COLUMN_NAME \`col\`
+        FROM information_schema.\`COLUMNS\`
+        WHERE (TABLE_NAME, TABLE_SCHEMA) IN (?)
+          AND COLUMN_NAME IN (?)`,
+      [showTables, showFields]
+    );
+
+    for (const row of result) {
+      const tables = showValues.get(row.schema);
+      const showField = tables.get(row.table);
+
+      let save;
+      if (showField != null) {
+        const newIndex = showFields.indexOf(row.col);
+        const oldIndex = showFields.indexOf(showField);
+        save = newIndex < oldIndex;
+      } else
+        save = true;
+
+      if (save)
+        tables.set(row.table, row.col);
+    }
+
+    // TODO: End
 
     // Zongji
 
@@ -535,6 +588,27 @@ module.exports = class MyLogger {
       }
     }
 
+    function equals(a, b) {
+      if (a === b)
+        return true;
+      const type = typeof a;
+      if (a == null || b == null || type !== typeof b)
+        return false;
+      if (type === 'object' && a.constructor === b.constructor) {
+        if (a instanceof Date) {
+          // FIXME: zongji creates invalid dates for NULL DATE
+          // Error is somewhere here: zongji/lib/rows_event.js:129
+          let aTime = a.getTime();
+          if (isNaN(aTime)) aTime = null;
+          let bTime = b.getTime();
+          if (isNaN(bTime)) bTime = null;
+    
+          return aTime === bTime;
+        }
+      }
+      return false;
+    }
+
     if (action == 'update') {
       for (const row of evt.rows) {
         let nColsChanged = 0;
@@ -651,6 +725,9 @@ module.exports = class MyLogger {
 
     const logInfo = tableInfo.log;
     const isDelete = action == 'delete';
+    const isUpdate = action == 'udpate';
+    const isMain = tableInfo.isMain;
+    const relation = tableInfo.relation;
 
     for (const change of changes) {
       let newI, oldI;
@@ -672,13 +749,13 @@ module.exports = class MyLogger {
       const created = new Date(evt.timestamp);
       const modelName = tableInfo.modelName;
       const modelId = row[tableInfo.idName];
-      const modelValue = tableInfo.showField && !tableInfo.isMain
+      const modelValue = tableInfo.showField && !isMain
         ? row[tableInfo.showField] || null
         : null;
       const oldInstance = oldI ? JSON.stringify(oldI) : null;
-      const originFk = !tableInfo.isMain
-        ? row[tableInfo.relation]
-        : modelId;
+      const originFk = !isMain ? row[relation] : modelId;
+      const originChanged = isUpdate && !isMain
+        && newI[relation] !== undefined;
 
       let deleteRow;
       if (conf.debug)
@@ -702,17 +779,23 @@ module.exports = class MyLogger {
             ]);
         }
         if (!conf.testMode && (!isDelete || !deleteRow)) {
-          await logInfo.addStmt.execute([
-            originFk,
-            row[tableInfo.userField] || null,
-            action,
-            created,
-            modelName,
-            oldInstance,
-            newI ? JSON.stringify(newI) : null,
-            modelId,
-            modelValue
-          ]);
+          async function log(originFk) {
+            return logInfo.addStmt.execute([
+              originFk,
+              row[tableInfo.userField] || null,
+              action,
+              created,
+              modelName,
+              oldInstance,
+              newI ? JSON.stringify(newI) : null,
+              modelId,
+              modelValue
+            ]);
+          }
+
+          await log(originFk);
+          if (originChanged)
+            await log(oldI[relation]);
         }
       } catch (err) {
         if (err.code == 'ER_NO_REFERENCED_ROW_2') {
@@ -784,25 +867,4 @@ function toUpperCamelCase(str) {
   str = str.replace(/[-_ ][a-z]/g,
     match => match.charAt(1).toUpperCase());
   return str.charAt(0).toUpperCase() + str.substr(1);
-}
-
-function equals(a, b) {
-  if (a === b)
-    return true;
-  const type = typeof a;
-  if (a == null || b == null || type !== typeof b)
-    return false;
-  if (type === 'object' && a.constructor === b.constructor) {
-    if (a instanceof Date) {
-      // FIXME: zongji creates invalid dates for NULL DATE
-      // Error is somewhere here: zongji/lib/rows_event.js:129
-      let aTime = a.getTime();
-      if (isNaN(aTime)) aTime = null;
-      let bTime = b.getTime();
-      if (isNaN(bTime)) bTime = null;
-
-      return aTime === bTime;
-    }
-  }
-  return false;
 }

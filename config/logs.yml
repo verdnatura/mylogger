@@ -1,0 +1,19 @@
+upperCaseTable: true
+userField:
+  - editorFk
+showFields:
+  - name
+  - description
+  - nickname
+castTypes:
+  tinyint: boolean
+logs:
+  item:
+    logTable: itemLog
+    mainTable: item
+    tables:
+      - itemTag
+      - name: item
+        showField: name
+        exclude:
+          - image

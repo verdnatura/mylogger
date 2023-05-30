@@ -1,0 +1,22 @@
+code: mylogger
+debug: false
+testMode: false
+pingInterval: 300
+flushInterval: 30
+restartTimeout: 30
+queueFlushDelay: 200
+maxBulkLog: 25
+maxQueueEvents: 10000
+serverId: 1
+srcDb:
+  host: localhost
+  port: 3306
+  user: zongji
+  password: password
+  database: util
+dstDb:
+  host: localhost
+  port: 3306
+  user: root
+  password: password
+  database: util
