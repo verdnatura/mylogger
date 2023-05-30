@@ -34,7 +34,6 @@ COPY \
     README.md \
     mylogger.js \
     index.js \
-    config.yml \
     ./
 
 ENV TZ Europe/Madrid
