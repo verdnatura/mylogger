@@ -780,7 +780,8 @@ module.exports = class MyLogger {
         }
         if (!conf.testMode && (!isDelete || !deleteRow)) {
           async function log(originFk) {
-            return logInfo.addStmt.execute([
+            if (originFk == null) return;
+            await logInfo.addStmt.execute([
               originFk,
               row[tableInfo.userField] || null,
               action,
