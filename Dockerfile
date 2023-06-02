@@ -28,6 +28,7 @@ ARG VERSION
 ENV VERSION $VERSION
 RUN echo $VERSION
 
+COPY lib lib
 COPY config config
 COPY \
     LICENSE \
