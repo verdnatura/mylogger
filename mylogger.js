@@ -490,7 +490,7 @@ module.exports = class MyLogger {
       }
 
       const modelId = row[tableInfo.idName];
-      const modelValue = change.modelValue;
+      const modelValue = change.modelValue ?? null;
       const oldInstance = oldI ? JSON.stringify(oldI) : null;
       const originFk = isSecondary ? row[relation] : modelId;
       const originChanged = isUpdate && isSecondary
@@ -522,7 +522,7 @@ module.exports = class MyLogger {
             if (originFk == null) return;
             await logInfo.addStmt.execute([
               originFk,
-              row[tableInfo.userField] || null,
+              row[tableInfo.userField] ?? null,
               action,
               created,
               modelName,
