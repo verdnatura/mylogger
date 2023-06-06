@@ -4,7 +4,7 @@ const ZongJi = require('./zongji');
 const mysql = require('mysql2/promise');
 const {loadConfig} = require('./lib/util');
 const ModelLoader = require('./lib/model-loader');
-const MultiMap = require('./lib/multi-map');
+const ShowDb = require('./lib/show-db');
 
 module.exports = class MyLogger {
   constructor() {
@@ -15,11 +15,14 @@ module.exports = class MyLogger {
     this.isFlushed = true;
     this.queue = [];
     this.modelLoader = new ModelLoader();
+    this.showDb = new ShowDb();
   }
 
   async start() {
     const conf = this.conf = loadConfig(__dirname, 'config');
-    Object.assign(this, this.modelLoader.init(conf));
+    
+    this.modelLoader.init(this);
+    this.showDb.init(this);
 
     const includeSchema = {};
     for (const [schemaName, tableMap] of this.schemaMap.map)
@@ -61,6 +64,9 @@ module.exports = class MyLogger {
     const db = this.db = await mysql.createConnection(conf.dstDb);
     db.on('error', this.onErrorListener);
 
+    await this.modelLoader.loadSchema();
+    await this.showDb.loadSchema();
+
     for (const logInfo of this.logMap.values()) {
       const table = logInfo.table;
       const sqlTable = `${db.escapeId(table.schema)}.${db.escapeId(table.name)}`;
@@ -93,11 +99,6 @@ module.exports = class MyLogger {
           WHERE id = ?`
       );
     }
-
-    await this.modelLoader.loadSchema(db,
-      this.schemaMap,
-      this.showTables
-    );
 
     // Zongji
 
@@ -412,11 +413,12 @@ module.exports = class MyLogger {
         do {
           const ops = [];
           let txStarted;
+
           try {
             for (let i = 0; i < conf.maxBulkLog && queue.length; i++)
               ops.push(queue.shift());
 
-            await this.getShowValues(ops);
+            await this.showDb.getValues(db, ops);
 
             await db.query('START TRANSACTION');
             txStarted = true;
@@ -453,72 +455,6 @@ module.exports = class MyLogger {
     }
   }
 
-  async getShowValues(ops) {
-    const {db, showTables} = this;
-    const showValues = new MultiMap();
-
-    // Fetch relations id
-
-    for (const op of ops) {
-      if (op.hasShowValues) continue;
-      const {relations} = op.tableInfo;
-      for (const change of op.changes) {
-        if (op.action == 'update') {
-          getRelationsId(relations, change.newI);
-          getRelationsId(relations, change.oldI);
-        } else
-          getRelationsId(relations, change.instance);
-      }
-    }
-
-    function getRelationsId(relations, row) {
-      for (const col in row) {
-        const relation = relations.get(col);
-        if (!relation) continue;
-        const {schema, table} = relation;
-        let ids = showValues.get(schema, table);
-        if (!ids) showValues.set(schema, table, ids = new Map());
-        if (!ids.has(row[col])) ids.set(row[col], null);
-      }
-    }
-
-    // Fetch show values
-
-    for (const [schema, table, ids] of showValues) {
-      const tableInfo = showTables.get(schema, table);
-      const [res] = await db.query(
-        tableInfo.selectStmt,
-        [Array.from(ids.keys())]
-      );
-      for (const row of res)
-        ids.set(row.id, row.val);
-    }
-
-    // Fill rows with show values
-
-    for (const op of ops) {
-      const {relations} = op.tableInfo;
-      for (const change of op.changes) {
-        if (op.action == 'update') {
-          setShowValues(relations, change.newI);
-          setShowValues(relations, change.oldI);
-        } else
-          setShowValues(relations, change.instance);
-      }
-      op.hasShowValues = true;
-    }
-
-    function setShowValues(relations, row) {
-      for (const col in row) {
-        const relation = relations.get(col);
-        if (!relation) continue;
-        const {schema, table} = relation;
-        const showValue = showValues.get(schema, table).get(row[col]);
-        if (showValue) row[`${col}$`] = showValue;
-      }
-    }
-  }
-
   async applyOp(op) {
     const {conf} = this;
     const {
@@ -533,6 +469,8 @@ module.exports = class MyLogger {
     const isUpdate = action == 'update';
     const isSecondary = !tableInfo.isMain;
     const relation = tableInfo.relation;
+    const modelName = tableInfo.modelName;
+    const created = new Date(evt.timestamp);
 
     for (const change of changes) {
       let newI, oldI;
@@ -551,12 +489,8 @@ module.exports = class MyLogger {
           break;
       }
 
-      const created = new Date(evt.timestamp);
-      const modelName = tableInfo.modelName;
       const modelId = row[tableInfo.idName];
-      const modelValue = tableInfo.showField && isSecondary
-        ? row[tableInfo.showField] || null
-        : null;
+      const modelValue = change.modelValue;
       const oldInstance = oldI ? JSON.stringify(oldI) : null;
       const originFk = isSecondary ? row[relation] : modelId;
       const originChanged = isUpdate && isSecondary
