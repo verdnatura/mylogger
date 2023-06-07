@@ -227,8 +227,8 @@ module.exports = class MyLogger {
     await new Promise(resolve => {
       zongji.ctrlConnection.query('KILL ?', [zongji.connection.threadId],
       err => {
-        if (err && err.code !== 'ER_NO_SUCH_THREAD')
-          logError(err);
+        // if (err && err.code !== 'ER_NO_SUCH_THREAD');
+        //   console.error(err);
         resolve();
       });
     });
@@ -313,8 +313,15 @@ module.exports = class MyLogger {
     if (!tableInfo) return;
 
     const action = actions[eventName];
-    const columns = tableInfo.columns;
-    let changes = [];
+    const {
+      columns,
+      rowExcludeField
+    } = tableInfo;
+    const changes = [];
+
+    function isExcluded(row) {
+      return rowExcludeField && row[rowExcludeField];
+    }
 
     function castValue(col, value) {
       switch(tableInfo.castTypes.get(col)) {
@@ -348,11 +355,13 @@ module.exports = class MyLogger {
 
     if (action == 'update') {
       for (const row of evt.rows) {
-        let nColsChanged = 0;
-        const before = row.before;
         const after = row.after;
+        if (isExcluded(after)) continue;
+
+        const before = row.before;
         const oldI = {};
         const newI = {};
+        let nColsChanged = 0;
 
         for (const col in before) {
           if (columns.has(col)
@@ -370,6 +379,8 @@ module.exports = class MyLogger {
       const cols = columns.keys();
 
       for (const row of evt.rows) {
+        if (isExcluded(row)) continue;
+
         const instance = {};
         for (const col of cols) {
           if (row[col] !== null)

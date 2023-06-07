@@ -1,10 +1,14 @@
 upperCaseTable: true
-userField:
-  - editorFk
+userField: editorFk
+rowExcludeField: logExclude
+excludeRegex: '__$'
 showFields:
   - name
   - description
   - nickname
+excludeFields:
+  - created
+  - updated
 castTypes:
   tinyint: boolean
 logs:
