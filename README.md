@@ -1,4 +1,4 @@
-# Asynchronous DB calculations reading the binary log
+# MySQL and MariaDB data changes auditor
 
 ## Enviroment setup
 
