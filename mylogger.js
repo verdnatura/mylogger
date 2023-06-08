@@ -313,10 +313,7 @@ module.exports = class MyLogger {
     if (!tableInfo) return;
 
     const action = actions[eventName];
-    const {
-      columns,
-      rowExcludeField
-    } = tableInfo;
+    const {rowExcludeField} = tableInfo;
     const changes = [];
 
     function isExcluded(row) {
@@ -354,6 +351,8 @@ module.exports = class MyLogger {
     }
 
     if (action == 'update') {
+      const cols = tableInfo.columns;
+
       for (const row of evt.rows) {
         const after = row.after;
         if (isExcluded(after)) continue;
@@ -364,10 +363,9 @@ module.exports = class MyLogger {
         let nColsChanged = 0;
 
         for (const col in before) {
-          if (columns.has(col)
+          if (cols.has(col)
           && !equals(after[col], before[col])) {
-            if (before[col] !== null)
-              oldI[col] = castValue(col, before[col]);
+            oldI[col] = castValue(col, before[col]);
             newI[col] = castValue(col, after[col]);
             nColsChanged++;
           }
@@ -376,7 +374,7 @@ module.exports = class MyLogger {
           changes.push({row: after, oldI, newI});
       }
     } else {
-      const cols = columns.keys();
+      const cols = tableInfo.instanceColumns;
 
       for (const row of evt.rows) {
         if (isExcluded(row)) continue;
@@ -474,13 +472,16 @@ module.exports = class MyLogger {
       evt,
       changes
     } = op;
+    const {
+      logInfo,
+      isMain,
+      relation,
+      modelName,
+      logFields
+    } = tableInfo;
 
-    const logInfo = tableInfo.log;
     const isDelete = action == 'delete';
     const isUpdate = action == 'update';
-    const isSecondary = !tableInfo.isMain;
-    const relation = tableInfo.relation;
-    const modelName = tableInfo.modelName;
     const created = new Date(evt.timestamp);
 
     for (const change of changes) {
@@ -491,6 +492,11 @@ module.exports = class MyLogger {
         case 'update':
           newI = change.newI;
           oldI = change.oldI;
+          if (logFields) {
+            for (const field of logFields)
+              if (newI[field] === undefined)
+                newI[field] = row[field];
+          }
           break;
         case 'insert':
           newI = change.instance;
@@ -503,8 +509,8 @@ module.exports = class MyLogger {
       const modelId = row[tableInfo.idName];
       const modelValue = change.modelValue ?? null;
       const oldInstance = oldI ? JSON.stringify(oldI) : null;
-      const originFk = isSecondary ? row[relation] : modelId;
-      const originChanged = isUpdate && isSecondary
+      const originFk = !isMain ? row[relation] : modelId;
+      const originChanged = isUpdate && !isMain
         && newI[relation] !== undefined;
 
       let deleteRow;

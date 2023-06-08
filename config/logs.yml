@@ -1,3 +1,6 @@
+logId: true
+logRelation: true
+logMainShowField: false
 upperCaseTable: true
 userField: editorFk
 rowExcludeField: logExclude
@@ -19,5 +22,7 @@ logs:
       - itemTag
       - name: item
         showField: name
+        logFields:
+          - size
         exclude:
           - image
