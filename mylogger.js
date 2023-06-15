@@ -320,13 +320,12 @@ module.exports = class MyLogger {
       return rowExcludeField && row[rowExcludeField];
     }
 
-    function castValue(col, value) {
-      switch(tableInfo.castTypes.get(col)) {
-        case 'boolean':
-          return !!value;
-        default:
-          return value;
-      }
+    function cast(value, type) {
+      if (value == null || !type)
+        return value;
+
+      const fn = castFn[type];
+      return fn ? fn(value) : value;
     }
 
     function equals(a, b) {
@@ -350,6 +349,8 @@ module.exports = class MyLogger {
       return false;
     }
 
+    const {castTypes} = tableInfo;
+
     if (action == 'update') {
       const cols = tableInfo.columns;
 
@@ -363,13 +364,17 @@ module.exports = class MyLogger {
         let nColsChanged = 0;
 
         for (const col in before) {
-          if (cols.has(col)
-          && !equals(after[col], before[col])) {
-            oldI[col] = castValue(col, before[col]);
-            newI[col] = castValue(col, after[col]);
+          if (!cols.has(col)) continue;
+          const type = castTypes.get(col);
+          const oldValue = cast(before[col], type);
+          const newValue = cast(after[col], type);
+          if (!equals(oldValue, newValue)) {
+            oldI[col] = oldValue;
+            newI[col] = newValue;
             nColsChanged++;
           }
         }
+
         if (nColsChanged)
           changes.push({row: after, oldI, newI});
       }
@@ -381,9 +386,11 @@ module.exports = class MyLogger {
 
         const instance = {};
         for (const col of cols) {
-          if (row[col] !== null)
-            instance[col] = castValue(col, row[col]);
+          if (row[col] == null) continue;
+          const type = castTypes.get(col);
+          instance[col] = cast(row[col], type);
         }
+
         changes.push({row, instance});
       }
     }
@@ -618,4 +625,10 @@ const actionColor = {
   insert: 'green',
   update: 'yellow',
   delete: 'red'
+};
+
+const castFn = {
+  boolean: function(value) {
+    return !!value;
+  }
 };
